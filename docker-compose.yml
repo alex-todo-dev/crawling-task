@@ -1,0 +1,51 @@
+services:
+  dvwa:
+    image: ghcr.io/digininja/dvwa:latest
+    environment:
+      - DB_SERVER=dvwa-db
+      - DB_PORT=3306
+      - DB_USER=dvwa
+      - DB_PASSWORD=p@ssw0rd
+      - DB_DATABASE=dvwa
+      - RECAPTCHA_PRIV_KEY=
+      - RECAPTCHA_PUB_KEY=
+    ports:
+      - "8080:80"
+    depends_on:
+      dvwa-db:
+        condition: service_healthy
+    networks:
+      - app-net
+
+  dvwa-db:
+    image: mariadb:11
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpass
+      - MYSQL_DATABASE=dvwa
+      - MYSQL_USER=dvwa
+      - MYSQL_PASSWORD=p@ssw0rd
+    volumes:
+      - dvwa-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-net
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - app-net
+
+volumes:
+  dvwa-db-data:
+  mongo-data:
+
+networks:
+  app-net:
