@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Web login page scanner"
 requires-python = ">=3.12"
 dependencies = [
+    "motor>=3.7.1",
     "playwright>=1.59.0",
+    "pydantic>=2.13.4",
 ]
 
 [dependency-groups]

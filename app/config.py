@@ -13,3 +13,5 @@ CONFIG = {
 "submit_selector": "[name='Login'][type='submit']",
 "exclude_patterns": ["logout", "delete", "remove"]
 }
+
+
