@@ -4,9 +4,8 @@ async def login(page):
     login_steps = CONFIG['login_steps']
    
     # Input user data    
-    for input in login_steps:
-        print(input)
-        await page.fill(input['selector'], input['value'])
+    for step in login_steps:
+        await page.fill(step['selector'], step['value'])
 
     # Submit user/password
     await page.click(CONFIG["submit_selector"])

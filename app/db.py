@@ -8,7 +8,7 @@ client : AsyncIOMotorClient = None
 
 # collections 
 SCAN_QUEUE = "scan_queue"
-BROWSER_REQUETS =  "browser_requests"
+BROWSER_REQUESTS = "browser_requests"
 BROWSER_RESPONSES = "browser_responses"
 AUTH_STATE = "auth_state"
 
@@ -44,7 +44,7 @@ async def db_close() -> dict:
 async def insert_scan_queue(db: AsyncIOMotorDatabase, id: str, url_name: str):
     doc = {
         "id": id, 
-        "url_neme": url_name,
+        "url_name": url_name,
         "status": QueueItemStatus.CREATED,
         "created_at": datetime.now(),
         "scanned_by": None,
@@ -70,7 +70,7 @@ async def pull_next_scan(db: AsyncIOMotorDatabase):
 
 # **************************************** RESQUESTS / RESPONSES *************************************************
 async def insert_request(db: AsyncIOMotorDatabase, doc):
-    await db[BROWSER_REQUETS].insert_one(doc.model_dump())
+    await db[BROWSER_REQUESTS].insert_one(doc.model_dump())
 
 async def insert_response(db: AsyncIOMotorDatabase, doc):
     await db[BROWSER_RESPONSES].insert_one(doc.model_dump())
