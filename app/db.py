@@ -10,6 +10,7 @@ client : AsyncIOMotorClient = None
 SCAN_QUEUE = "scan_queue"
 BROWSER_REQUETS =  "browser_requests"
 BROWSER_RESPONSES = "browser_responses"
+AUTH_STATE = "auth_state"
 
 
 # data classes
@@ -73,6 +74,16 @@ async def insert_request(db: AsyncIOMotorDatabase, doc):
 
 async def insert_response(db: AsyncIOMotorDatabase, doc):
     await db[BROWSER_RESPONSES].insert_one(doc.model_dump())
+
+# **************************************** AUTH STATE *************************************************
+async def insert_auth_state(db: AsyncIOMotorDatabase, doc) -> None:
+    await db[AUTH_STATE].insert_one(doc.model_dump())
+
+async def get_auth_state(db: AsyncIOMotorDatabase, scan_id: str):
+    return await db[AUTH_STATE].find_one({"scan_id": scan_id}, {"_id": 0})
+
+
+
 
 
 

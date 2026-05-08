@@ -26,9 +26,8 @@ async def main():
     # login action 
     await login(page=page)
 
-    # login validation 
-    loging_status = await login_verification(page=page, expected_url=CONFIG['start_url_after_login'])
-    print(loging_status)
+    # login validation
+    await login_verification(page=page, expected_url=CONFIG['start_url_after_login'], db=db_)
     
    
 
