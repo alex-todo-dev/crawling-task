@@ -11,7 +11,9 @@ CONFIG = {
     {"selector": "[name='password']", "value": "password"}
 ],
 "submit_selector": "[name='Login'][type='submit']",
-"exclude_patterns": ["logout", "delete", "remove"]
+"exclude_patterns": ["logout", "delete", "remove"],
+"exact_exclude": ["#", "."],
+"skip_extensions": [".pdf", ".md", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".css", ".zip", ".yml", ".yaml", ".dist"]
 }
 
 

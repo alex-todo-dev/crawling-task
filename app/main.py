@@ -1,5 +1,6 @@
-from app.db import get_db, db_close
+from app.db import get_db, db_close, insert_url_queue
 from app.requests_responses import collect_browser_requests
+from app.worker import worker
 from playwright.async_api import async_playwright
 import asyncio
 from app.config import CONFIG
@@ -29,13 +30,26 @@ async def main():
     # login validation
     await login_verification(page=page, expected_url=CONFIG['start_url_after_login'], db=db_)
     
-   
+    # insert after login page depth 0 for scan
+    await insert_url_queue(db=db_, id=CONFIG['scan_id'], url_name=CONFIG['start_url_after_login'], depth=0)
+
+    # start workers
+    workers = [asyncio.create_task(worker(i, db_, context)) for i in range(CONFIG['concurrency'])]
+
+    
 
 
-    # on browser close 
+
+    # on browser close
     stop = asyncio.Event()
     browser.on("disconnected", lambda _: stop.set())
-    await stop.wait()  
+    await stop.wait()
+
+    # workers cancel 
+    for w in workers:
+        w.cancel()
+    await asyncio.gather(*workers, return_exceptions=True)
+
     await pw.stop()
 
     # db connection close

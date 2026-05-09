@@ -1,24 +1,16 @@
-from typing import Any
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from datetime import datetime
-from enum import StrEnum
+from app.models import QueueItemStatus, ScanQueueItem
 
 client : AsyncIOMotorClient = None
 
 
-# collections 
+# collections
 SCAN_QUEUE = "scan_queue"
 BROWSER_REQUESTS = "browser_requests"
 BROWSER_RESPONSES = "browser_responses"
 AUTH_STATE = "auth_state"
-
-
-# data classes
-class QueueItemStatus(StrEnum):
-    CREATED = "created"
-    RUNNING = "running"
-    FAILED = "failed"
-    COMPLETED = "completed"
+ERROR_LOG = "error_log"
 
 # connect to mongo 
 async def get_db(uri: str = "mongodb://localhost:27017", db_name: str = "crawl-task") -> AsyncIOMotorDatabase:
@@ -40,23 +32,20 @@ async def db_close() -> dict:
 
 #*********************************** SCAN QUEUE MONGO DB *****************************************************
 
-# inserts new url scan into the queue 
-async def insert_scan_queue(db: AsyncIOMotorDatabase, id: str, url_name: str):
-    doc = {
-        "id": id, 
-        "url_name": url_name,
-        "status": QueueItemStatus.CREATED,
-        "created_at": datetime.now(),
-        "scanned_by": None,
-        "scanned_at": None
-    }
-    res = await db[SCAN_QUEUE].insert_one(doc)
+# inserts new url scan into the queue
+async def insert_url_queue(db: AsyncIOMotorDatabase, id: str, url_name: str, depth: int):
+    item = ScanQueueItem(id=id, url_name=url_name, depth=depth)
+    res = await db[SCAN_QUEUE].update_one({"url_name": url_name}, {"$setOnInsert": item.model_dump()}, upsert=True)
+    if res.upserted_id:
+        print(f"DB: queued new URL: {url_name} (depth {depth})")
+    else:
+        print(f"DB: skipped duplicate: {url_name}")
     return res
 
-# update scan queue item status 
-async def update_scan_item_status(db: AsyncIOMotorDatabase, item_id: str, status: QueueItemStatus, woker_id: str):
-    update = {"$set":{"status": status, "scanned_by": woker_id, "scanned_at": datetime.now()}}
-    res = await db[SCAN_QUEUE].update_one({"id": item_id}, update)
+# update scan queue item status
+async def update_scan_item_status(db: AsyncIOMotorDatabase, item: ScanQueueItem):
+    update = {"$set": {"status": item.status, "scanned_by": item.scanned_by, "scanned_at": item.scanned_at}}
+    res = await db[SCAN_QUEUE].update_one({"id": item.id}, update)
     return res
 
 # pull next url for scan from the queue 

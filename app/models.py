@@ -1,5 +1,24 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
+from enum import StrEnum
+
+
+class QueueItemStatus(StrEnum):
+    CREATED = "created"
+    RUNNING = "running"
+    FAILED = "failed"
+    COMPLETED = "completed"
+
+
+class ScanQueueItem(BaseModel):
+    id: str
+    url_name: str
+    depth: int
+    status: QueueItemStatus = QueueItemStatus.CREATED
+    created_at: datetime = Field(default_factory=datetime.now)
+    scanned_by: str | None = None
+    scanned_at: datetime | None = None
+
 
 class Cookie(BaseModel):
     name: str
