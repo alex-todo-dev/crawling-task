@@ -1,5 +1,5 @@
 from app.models import PageRequest, PageResponse
-from app.db import insert_request, insert_response
+from app.db.requests import insert_request, insert_response
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 

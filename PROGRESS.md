@@ -11,19 +11,19 @@
 | 05 | Validate login success | ✅ Done |
 | 06 | Save authenticated browser storage / session state | ⚠️ Cookies saved to MongoDB, `storage_state` not persisted for reuse across runs |
 | 07 | Start crawling from `start_url_after_login` | ✅ Done |
-| 08 | Extract links, forms, buttons, scripts | ⚠️ Links done, forms incomplete (action only), buttons/scripts extracted but not stored |
+| 08 | Extract links, forms, buttons, scripts | ✅ Done — links, forms (fields/buttons/csrf), scripts extracted and stored |
 | 09 | Capture all browser requests and responses | ✅ Done |
-| 10 | Store discovered pages, forms, links, network traffic in MongoDB | ⚠️ Links stored, requests/responses stored, forms not yet stored |
+| 10 | Store discovered pages, forms, links, network traffic in MongoDB | ✅ Done — links, forms, requests/responses all stored |
 | 11 | Avoid duplicate links | ✅ Done — upsert on `scan_id + url` |
-| 12 | Avoid duplicate forms | ❌ Not implemented |
+| 12 | Avoid duplicate forms | ✅ Done — upsert on `scan_id + form_hash` |
 | 13 | Avoid duplicate captured requests | ❌ No hash deduplication yet |
 | 14 | Respect `allowed_domains` | ✅ Done |
 | 15 | Respect `exclude_patterns` | ✅ Done |
 | 16 | Support crawl depth limits (`max_depth`) | ✅ Done |
 | 17 | Support maximum page limits (`max_pages`) | ✅ Done |
 | 18 | Async crawling with `asyncio` and concurrency cap | ✅ Done — 3 concurrent workers |
-| 19 | Allow graceful stop at any moment | ⚠️ Workers cancelled on browser close, partial state persisted |
-| 20 | Resume from last saved state on re-run with same `scan_id` | ❌ RUNNING items not reset on restart |
+| 19 | Allow graceful stop at any moment | ✅ Done — SIGINT/SIGTERM handled, workers finish current scan then stop |
+| 20 | Resume from last saved state on re-run with same `scan_id` | ✅ Done — RUNNING items reset to CREATED on startup |
 
 ---
 
@@ -37,69 +37,52 @@
 - [x] max_depth, max_pages, concurrency, login_steps, submit_selector
 - [x] exclude_patterns, exact_exclude, skip_extensions
 
+### Project Structure
+- [x] `app/db/` — connection.py, queue.py, links.py, forms.py, requests.py
+- [x] `app/crawler/` — worker.py, scan_url.py
+- [x] `app/auth/` — login.py, validation.py
+- [x] `app/capture/` — requests_responses.py
+
 ### Models (`app/models.py`)
 - [x] `QueueItemStatus` — created / running / failed / completed
 - [x] `ScanQueueItem`
 - [x] `Link` — scan_id, url, depth, found_on
+- [x] `FormField` — name, type, required
+- [x] `Form` — scan_id, page_url, form_hash, action, method, fields, buttons, csrf_detected
 - [x] `Cookie`, `AuthState`
 - [x] `PageRequest`, `PageResponse`
 
-### Database (`app/db.py`)
-- [x] MongoDB async connection via `motor`
-- [x] Collections: `scan_queue`, `links`, `browser_requests`, `browser_responses`, `auth_state`, `error_log`
-- [x] Scan queue: insert (upsert), pull next (atomic), update status, count
-- [x] Links: insert with deduplication (upsert on `scan_id + url`)
-- [x] Request / response insert helpers
-- [x] Auth state insert and fetch helpers
+### Database (`app/db/`)
+- [x] `connection.py` — async MongoDB connection, collection name constants
+- [x] `queue.py` — insert, pull next (atomic), update status, count, reset running items
+- [x] `links.py` — insert with deduplication (upsert on `scan_id + url`)
+- [x] `forms.py` — insert with deduplication (upsert on `scan_id + form_hash`)
+- [x] `requests.py` — insert request/response, insert/get auth state
 
-### Login (`app/login.py`)
-- [x] Config-driven form fill and submit
-- [x] Waits for network idle after submit
+### Auth (`app/auth/`)
+- [x] `login.py` — config-driven form fill and submit, waits for network idle
+- [x] `validation.py` — URL redirect check, session cookie check, saves AuthState to MongoDB
 
-### Login Verification (`app/login_validation.py`)
-- [x] URL redirect check after login
-- [x] Session cookie check (`PHPSESSID`, `session`, `token`)
-- [x] Saves `AuthState` (success or failure) to MongoDB
+### Capture (`app/capture/`)
+- [x] `requests_responses.py` — hooks into Playwright network events, saves to MongoDB
 
-### Request/Response Collection (`app/requests_responses.py`)
-- [x] Hooks into Playwright `on("request")` and `on("response")`
-- [x] Saves every network event to MongoDB during the session
-
-### URL Scanning (`app/scan_url.py`)
-- [x] Navigate to URL, check content-type (skip non-HTML)
-- [x] Extract links — filter None, exact_exclude, exclude_patterns, external domains, skip_extensions
-- [x] Normalize URLs — strip fragments, resolve relative to absolute with `urljoin`
-- [x] Store each discovered link immediately to `links` collection
-- [x] Enqueue links within depth limit, respecting max_pages
-- [x] Extract forms, buttons, scripts (not yet stored to MongoDB)
-
-### Worker (`app/worker.py`)
-- [x] Pull next item atomically from `scan_queue`
-- [x] Parse raw MongoDB dict into `ScanQueueItem`
-- [x] Call `scan_url`, mark item as `completed` or `failed`
-- [x] 3 concurrent workers via `asyncio.create_task`
+### Crawler (`app/crawler/`)
+- [x] `scan_url.py` — navigate, content-type check, extract and filter links, extract forms with full field data, CSRF detection, stable hash, store all to MongoDB immediately on discovery
+- [x] `worker.py` — pull next item atomically, parse into ScanQueueItem, call scan_url, update status, respects shutdown event
 
 ### Orchestration (`app/main.py`)
 - [x] Connect DB → launch browser → attach listeners → login → verify
+- [x] Reset RUNNING items on startup for resume
 - [x] Seed queue with `start_url_after_login` at depth 0
 - [x] Launch worker pool (concurrency from config)
-- [x] Cancel workers and close browser cleanly on disconnect
+- [x] SIGINT/SIGTERM graceful shutdown — workers finish current scan, RUNNING items reset, DB closed cleanly
 
 ---
 
 ## To Do
 
-### Resume Logic
-- [ ] On startup, reset all `RUNNING` items to `CREATED` for the same `scan_id`
-
 ### Session Persistence
 - [ ] Persist `storage_state` to disk and reuse on re-run
-
-### Forms
-- [ ] Full form extraction: action, method, fields (name/type/required), buttons
-- [ ] Stable form hash for deduplication (`sha256` of page_url + action + method + fields)
-- [ ] Store deduplicated forms to MongoDB (`forms` collection)
-- [ ] Detect CSRF tokens in forms
 
 ### Request/Response Deduplication & Classification
 - [ ] Hash each request (`sha256` of method + url + headers + body)

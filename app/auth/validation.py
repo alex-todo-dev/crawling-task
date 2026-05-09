@@ -1,6 +1,6 @@
 from app.models import AuthState, Cookie
 from app.config import CONFIG
-from app.db import insert_auth_state
+from app.db.requests import insert_auth_state
 
 async def login_verification(page, expected_url, db) -> None:
     cookies = await page.context.cookies()
