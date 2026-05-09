@@ -2,7 +2,8 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from playwright.async_api import BrowserContext
 from app.db import pull_next_scan, update_scan_item_status
 from app.models import QueueItemStatus, ScanQueueItem
-from app.scan_url import scan_url
+from app.crawler.scan_url import scan_url
+from app.config import CONFIG
 from datetime import datetime
 import asyncio
 
@@ -23,7 +24,7 @@ async def worker(worker_id: int, db: AsyncIOMotorDatabase, context: BrowserConte
             print(f"WORKER {worker_id}: Scanning: {item.url_name}")
 
             try:
-                await scan_url(context=context, db=db, item=item)
+                await scan_url(context=context, db=db, item=item, scan_id=CONFIG['scan_id'])
                 item.status = QueueItemStatus.COMPLETED
             except Exception as e:
                 print(f"WORKER {worker_id}: failed to scan {item.url_name} — {e}")

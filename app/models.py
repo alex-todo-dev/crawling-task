@@ -20,6 +20,14 @@ class ScanQueueItem(BaseModel):
     scanned_at: datetime | None = None
 
 
+class Link(BaseModel):
+    scan_id: str
+    url: str
+    depth: int
+    found_on: str
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
 class Cookie(BaseModel):
     name: str
     value: str

@@ -1,7 +1,8 @@
 from playwright.async_api import BrowserContext
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.models import ScanQueueItem
-from app.db import insert_url_queue
+from app.db import insert_url_queue, insert_link, get_queue_count
+from app.models import Link
 from app.config import CONFIG
 from urllib.parse import urlparse, urljoin, urlunparse
 import uuid
@@ -10,7 +11,7 @@ def normalize_url(url: str) -> str:
     parsed = urlparse(url)
     return urlunparse(parsed._replace(fragment=''))
 
-async def scan_url(context: BrowserContext, db: AsyncIOMotorDatabase, item: ScanQueueItem):
+async def scan_url(context: BrowserContext, db: AsyncIOMotorDatabase, item: ScanQueueItem, scan_id: str):
     page = await context.new_page()
 
     response = await page.goto(item.url_name)
@@ -32,7 +33,7 @@ async def scan_url(context: BrowserContext, db: AsyncIOMotorDatabase, item: Scan
     # Filter links exclude
     links = [link for link in links if link not in CONFIG['exact_exclude'] and not any(p in link for p in CONFIG['exclude_patterns'])]
 
-    # Filter external links. Or starts with http or differnet domain name
+    # Filter external links — keep only allowed domains
     links = [
       link for link in links
       if not link.startswith('http') or urlparse(link).netloc in CONFIG['allowed_domains']]
@@ -42,11 +43,15 @@ async def scan_url(context: BrowserContext, db: AsyncIOMotorDatabase, item: Scan
 
     print(f"SCAN_MODULE:Links post filter:{links}")
 
-    # Resolve and enqueue links within depth limit
+    # Store and enqueue discovered links
     next_depth = item.depth + 1
-    if next_depth <= CONFIG['max_depth']:
-        for link in links:
-            resolved = normalize_url(urljoin(item.url_name, link))
+    for link in links:
+        resolved = normalize_url(urljoin(item.url_name, link))
+        await insert_link(db=db, link=Link(scan_id=scan_id, url=resolved, depth=next_depth, found_on=item.url_name))
+        if next_depth <= CONFIG['max_depth']:
+            if await get_queue_count(db) >= CONFIG['max_pages']:
+                print(f"SCAN_MODULE: max_pages ({CONFIG['max_pages']}) reached, stopping enqueue")
+                break
             await insert_url_queue(db=db, id=str(uuid.uuid4()), url_name=resolved, depth=next_depth)
 
 
@@ -62,7 +67,7 @@ async def scan_url(context: BrowserContext, db: AsyncIOMotorDatabase, item: Scan
     buttons = [await button.inner_text() for button in buttons]
     print(f"SCAN_MODULE:Found page buttons:{buttons}")
 
-    # SCAN FOR SCIPTS
+    # SCAN FOR SCRIPTS
     scripts = await page.query_selector_all("script[src]")
     scripts = [await script.get_attribute("src") for script in scripts]
     print(f"SCAN_MODULE:Found page scripts:{scripts}")

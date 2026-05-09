@@ -1,6 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from datetime import datetime
-from app.models import QueueItemStatus, ScanQueueItem
+from app.models import QueueItemStatus, ScanQueueItem, Link
 
 client : AsyncIOMotorClient = None
 
@@ -11,6 +11,7 @@ BROWSER_REQUESTS = "browser_requests"
 BROWSER_RESPONSES = "browser_responses"
 AUTH_STATE = "auth_state"
 ERROR_LOG = "error_log"
+LINKS = "links"
 
 # connect to mongo 
 async def get_db(uri: str = "mongodb://localhost:27017", db_name: str = "crawl-task") -> AsyncIOMotorDatabase:
@@ -42,6 +43,10 @@ async def insert_url_queue(db: AsyncIOMotorDatabase, id: str, url_name: str, dep
         print(f"DB: skipped duplicate: {url_name}")
     return res
 
+# get total count of queued pages
+async def get_queue_count(db: AsyncIOMotorDatabase) -> int:
+    return await db[SCAN_QUEUE].count_documents({})
+
 # update scan queue item status
 async def update_scan_item_status(db: AsyncIOMotorDatabase, item: ScanQueueItem):
     update = {"$set": {"status": item.status, "scanned_by": item.scanned_by, "scanned_at": item.scanned_at}}
@@ -57,7 +62,15 @@ async def pull_next_scan(db: AsyncIOMotorDatabase):
       )
       return url
 
-# **************************************** RESQUESTS / RESPONSES *************************************************
+# **************************************** LINKS *************************************************
+async def insert_link(db: AsyncIOMotorDatabase, link: Link):
+    await db[LINKS].update_one(
+        {"scan_id": link.scan_id, "url": link.url},
+        {"$setOnInsert": link.model_dump()},
+        upsert=True
+    )
+
+# **************************************** REQUESTS / RESPONSES *************************************************
 async def insert_request(db: AsyncIOMotorDatabase, doc):
     await db[BROWSER_REQUESTS].insert_one(doc.model_dump())
 

@@ -1,11 +1,11 @@
 from app.db import get_db, db_close, insert_url_queue
-from app.requests_responses import collect_browser_requests
-from app.worker import worker
+from app.capture.requests_responses import collect_browser_requests
+from app.crawler.worker import worker
 from playwright.async_api import async_playwright
 import asyncio
 from app.config import CONFIG
-from app.login import login
-from app.login_validation import login_verification
+from app.auth.login import login
+from app.auth.validation import login_verification
 
 
 async def main():
